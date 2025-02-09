@@ -32,7 +32,7 @@ data Posn:
 end
 
 data World:
-  | world(p :: Posn, birdl :: Posn, birdr :: Posn, c1 :: Posn, c2 :: Posn, co1 :: Posn, co2 :: Posn, f)
+  | world(p :: Posn, birdl :: Posn, birdr :: Posn, c1 :: Posn, c2 :: Posn, co1 :: Posn, co2 :: Posn, f, xmove :: Number, bymove :: Number, cmove :: Number)
 end
 
 ## setting background up
@@ -58,57 +58,99 @@ background = I.place-image(counter, 80, 35,
   I.place-image(sky, width / 2, height / 2, blank-scene))
 
 
-######### moving on tick ##########
-balloon-y-move = 5
-key-distance = 4
-bird-x-move = 4
-c1-y-move = 1
-c2-y-move = 1
+scoreboard = frame(I.rectangle(width / 2, height / 2, "solid", "light green"))
 
-init-pos = world(posn(400, 0), birdl-loc, birdr-loc, cloud1-loc, cloud2-loc, coin1-loc, coin2-loc, 0)
+######### moving on tick ##########
+key-distance = 4
+
+init-pos = world(posn(400, 0), birdl-loc, birdr-loc, cloud1-loc, cloud2-loc, coin1-loc, coin2-loc, 0, 4, 5, 1)
+
+fun c-y-move(w :: World) -> Number:
+  ask:
+    | w.f == 0 then: w.cmove
+    | otherwise:
+      if num-modulo(w.f, 5) == 0:
+        w.cmove + 1
+      else:
+        w.cmove
+      end
+  end
+end
+
+fun balloon-y-move(w :: World) -> Number:
+  ask:
+    | w.f == 0 then: w.bymove
+    | otherwise:
+      if num-modulo(w.f, 5) == 0:
+        w.bymove + 1
+      else:
+        w.bymove
+      end
+  end
+end
+
+fun bird-x-move(w :: World) -> Number:
+  ask:
+    | w.f == 0 then: w.xmove
+    | otherwise:
+      if num-modulo(w.f, 5) == 0:
+        w.xmove + 1
+      else:
+        w.xmove
+      end
+  end
+end
 
 fun move-balloon-y-on-tick(w :: World) -> World:
-  world(posn(w.p.x, w.p.y - balloon-y-move), 
+  world(posn(w.p.x, w.p.y - w.bymove), 
     w.birdl, 
     w.birdr, 
     w.c1, 
     w.c2, 
     w.co1, 
     w.co2, 
-    w.f)
+    w.f, 
+    bird-x-move(w), 
+    balloon-y-move(w), c-y-move(w))
 end
 
 fun move-birdl-on-tick(w :: World) -> World:
   world(w.p, 
-    posn(w.birdl.x + bird-x-move, w.birdl.y), 
+    posn(w.birdl.x + w.xmove, w.birdl.y), 
     w.birdr,
     w.c1, 
     w.c2, 
     w.co1, 
     w.co2, 
-    w.f)
+    w.f, 
+    bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
 end
 
 fun move-birdr-on-tick(w :: World) -> World:
   world(w.p, 
     w.birdl, 
-    posn(w.birdr.x - bird-x-move, w.birdr.y), 
+    posn(w.birdr.x - w.xmove, w.birdr.y), 
     w.c1, 
     w.c2, 
     w.co1, 
     w.co2, 
-    w.f)
+    w.f, 
+    bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
 end
 
 fun move-cloud1(w :: World) -> World:
   world(w.p, 
     w.birdl, 
     w.birdr,
-    posn(w.c1.x, w.c1.y - c1-y-move), 
+    posn(w.c1.x, w.c1.y - w.cmove), 
     w.c2, 
     w.co1, 
     w.co2, 
-    w.f)
+    w.f, 
+    bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
 end
 
 fun move-cloud2(w :: World) -> World:
@@ -116,10 +158,12 @@ fun move-cloud2(w :: World) -> World:
     w.birdl, 
     w.birdr,
     w.c1, 
-    posn(w.c2.x, w.c2.y - c2-y-move), 
+    posn(w.c2.x, w.c2.y - w.cmove), 
     w.co1, 
     w.co2, 
-    w.f)
+    w.f, 
+    bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
 end
 
 ######## collision ########
@@ -139,10 +183,6 @@ fun touches-coin2(w):
   distance(w.p, w.co2) < 40
 end
 
-fun reached-goal(w):
-  w.f == 10
-end
-
 #on tick, coin and wrapping
 fun move-wrapping-on-tick(w :: World):
  if touches-coin1(w):
@@ -155,7 +195,9 @@ fun move-wrapping-on-tick(w :: World):
         posn(w.c2.x, num-modulo(move-cloud2(w).c2.y, height)),
         posn(500, num-modulo(w.co1.y + random(height - 50), height)), 
         w.co2,
-        w.f + 1)
+        w.f + 1, 
+        bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
     
     else: world(
         posn(w.p.x, num-modulo(move-balloon-y-on-tick(w).p.y, height)),
@@ -165,7 +207,9 @@ fun move-wrapping-on-tick(w :: World):
         posn(w.c2.x, num-modulo(move-cloud2(w).c2.y, height)),
         posn(300, num-modulo(w.co1.y + random(height - 50), height)), 
         w.co2,
-        w.f + 1)
+        w.f + 1, 
+        bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
     end
       
   else if touches-coin2(w):
@@ -178,7 +222,9 @@ fun move-wrapping-on-tick(w :: World):
       posn(w.c2.x, num-modulo(move-cloud2(w).c2.y, height)),
       w.co1,
         posn(500, num-modulo(w.co2.y + random(height - 50), height)), 
-      w.f + 1)
+      w.f + 1, 
+        bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
     
     else:
       world(
@@ -189,7 +235,9 @@ fun move-wrapping-on-tick(w :: World):
         posn(w.c2.x, num-modulo(move-cloud2(w).c2.y, height)),
         w.co1,
         posn(300, num-modulo(w.co2.y + random(height - 50), height)), 
-        w.f + 1)
+        w.f + 1, 
+        bird-x-move(w),
+    balloon-y-move(w), c-y-move(w))
     end  
     
   else:
@@ -200,12 +248,21 @@ fun move-wrapping-on-tick(w :: World):
       posn(w.c1.x, num-modulo(move-cloud1(w).c1.y, height)),
       posn(w.c2.x, num-modulo(move-cloud2(w).c2.y, height)),
       w.co1, w.co2,
-      w.f)
+      w.f, 
+      w.xmove, w.bymove, w.cmove)
   end
 end 
 
 #gives new position of world and places it on bg
 fun place-balloon-xy(w :: World): 
+  if are-overlapping(w):
+     I.place-image(text("Your Score: " + num-to-string(w.f), 50, "black"),width / 2, height / 2, 
+        I.place-image(clouds1, w.c1.x, w.c1.y,
+          I.place-image(clouds2, w.c2.x, w.c2.y,
+          I.place-image(scoreboard, width / 2, height / 2, 
+            sky)))) 
+
+  else:
   I.place-image(balloon, w.p.x, w.p.y,
     I.place-image(birdl, w.birdl.x, w.birdl.y,
       I.place-image(birdr, w.birdr.x, w.birdr.y,
@@ -215,6 +272,7 @@ fun place-balloon-xy(w :: World):
               I.place-image(coin2, w.co2.x, w.co2.y,
                 I.place-image(text("coins: " + num-to-string(w.f), 28, "black"), 80, 35,
                   background))))))))
+  end
 end
 
 ######## keys ########
@@ -222,17 +280,17 @@ KEY-DISTANCE = 10
 
 fun alter-balloon-xy-on-key(w, key):
   ask:
-    | key == "up"   then: world(posn(w.p.x, w.p.y - KEY-DISTANCE), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f)
-    | key == "down" then: world(posn(w.p.x, w.p.y + KEY-DISTANCE), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f)
-    | key == "left" then: world(posn(num-modulo(w.p.x - KEY-DISTANCE, width), w.p.y), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f)
-    | key == "right" then: world(posn(num-modulo(w.p.x + KEY-DISTANCE, width), w.p.y), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f)
+    | key == "up"   then: world(posn(w.p.x, w.p.y - KEY-DISTANCE), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f ,w.xmove, w.bymove, w.cmove)
+    | key == "down" then: world(posn(w.p.x, w.p.y + KEY-DISTANCE), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f,w.xmove, w.bymove, w.cmove)
+    | key == "left" then: world(posn(num-modulo(w.p.x - KEY-DISTANCE, width), w.p.y), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f,w.xmove, w.bymove, w.cmove)
+    | key == "right" then: world(posn(num-modulo(w.p.x + KEY-DISTANCE, width), w.p.y), w.birdl, w.birdr, w.c1, w.c2, w.co1, w.co2, w.f,w.xmove, w.bymove, w.cmove)
     | otherwise: w
   end
 end
 
 ### game ends when
-fun game-ends(w):
-  are-overlapping(w) or reached-goal(w)
+fun game-ends(w) block:
+  are-overlapping(w)
 end
 
 ######## calling ########
@@ -241,7 +299,9 @@ anim = reactor:
   on-tick: move-wrapping-on-tick,
   on-key: alter-balloon-xy-on-key,
   to-draw: place-balloon-xy,
-  stop-when: game-ends
+  stop-when: game-ends,
+  close-when-stop: false,
+  title: "Balloon Game"
 end
 
 R.interact(anim)
